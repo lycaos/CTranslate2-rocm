@@ -1,0 +1,2 @@
+# Include shared libraries in the wheel
+global-include *.so *.so.*
