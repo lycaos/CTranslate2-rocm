@@ -24,14 +24,103 @@ torchaudio._backend.list_audio_backends has been deprecated
 
 ---
 
-## 2. Incompatibilité de Versions PyAnnote Model
+## 2. PyAnnote Model Compatibility Warning
 
-### Warning
+### ⚠️ Warning Observé
 ```
-Model was trained with pyannote.audio 0.0.1, yours is 3.4.0
-Model was trained with torch 1.10.0+cu102, yours is 2.8.0+rocm6
-Bad things might happen unless you revert...
+UserWarning: Model was trained with pyannote.audio 0.0.1, yours is 3.4.0.
+Bad things might happen unless you revert pyannote.audio to 0.0.1.
 ```
+
+### 🔍 Explication Technique
+
+**Contexte** :
+- Le modèle VAD (Voice Activity Detection) utilisé par défaut a été entraîné avec **pyannote.audio 0.0.1** (version très ancienne de 2021)
+- Nous utilisons **pyannote.audio 3.4.0** (version moderne de 2024)
+
+**Pourquoi ça fonctionne quand même ?**
+
+PyTorch garantit la **rétrocompatibilité des modèles** :
+- Les modèles `.pt` sauvegardés avec d'anciennes versions se chargent correctement
+- L'architecture du réseau de neurones reste compatible
+- Seuls les hyperparamètres et poids sont stockés (pas de code)
+
+### ✅ Solution Recommandée : Utiliser speaker-diarization-3.1
+
+**Nouveau modèle disponible** : `pyannote/speaker-diarization-3.1`
+
+**Avantages** :
+- ✅ **Entraîné avec pyannote.audio 3.1** (compatible avec 3.4.0)
+- ✅ **Pure PyTorch** (retire ONNX Runtime qui était problématique)
+- ✅ **Plus rapide** et plus facile à déployer
+- ✅ **Meilleure précision** sur les benchmarks
+- ✅ **16.5 millions de téléchargements/mois**
+
+**Configuration locale** :
+```python
+# Le modèle est déjà téléchargé dans :
+# /opt/rocm_models/pyannote/pyannote--speaker-diarization-3.1/
+
+from pyannote.audio import Pipeline
+
+# Charger depuis le dossier local
+pipeline = Pipeline.from_pretrained(
+    "/opt/rocm_models/pyannote/pyannote--speaker-diarization-3.1"
+)
+
+# Ou depuis HuggingFace (nécessite token d'accès)
+# pipeline = Pipeline.from_pretrained(
+#     "pyannote/speaker-diarization-3.1",
+#     use_auth_token="YOUR_HF_TOKEN"
+# )
+
+# Utiliser le GPU ROCm
+import torch
+pipeline.to(torch.device("cuda"))
+
+# Diarisation
+diarization = pipeline("audio.wav")
+```
+
+**Modèles utilisés par speaker-diarization-3.1** :
+- `pyannote/segmentation-3.0` - Segmentation moderne
+- `pyannote/wespeaker-voxceleb-resnet34-LM` - Embeddings de locuteur
+
+**Configuration dans config.yaml** :
+```yaml
+version: 3.1.0
+pipeline:
+  name: pyannote.audio.pipelines.SpeakerDiarization
+  params:
+    clustering: AgglomerativeClustering
+    embedding: pyannote/wespeaker-voxceleb-resnet34-LM
+    segmentation: pyannote/segmentation-3.0
+```
+
+### 📊 Ancien vs Nouveau Modèle
+
+| Aspect | Ancien (défaut WhisperX) | Nouveau (speaker-diarization-3.1) |
+|--------|--------------------------|-----------------------------------|
+| **Version pyannote.audio** | 0.0.1 (2021) | 3.1 (2024) |
+| **Backend** | ONNX Runtime | Pure PyTorch |
+| **Warnings** | ⚠️ Version mismatch | ✅ Pas de warnings |
+| **Performance** | Bonne | Meilleure |
+| **ROCm** | Compatible | Optimisé |
+| **Maintenance** | Archivé | Actif |
+
+### 🎯 Impact sur Votre Installation
+
+**Status actuel** : ⚠️ Warning mais fonctionnel
+- Le modèle VAD fonctionne parfaitement
+- PyTorch gère la compatibilité backward
+- Aucune perte de qualité détectée
+
+**Recommandation** : ✅ Migrer vers speaker-diarization-3.1
+- Élimine le warning
+- Améliore les performances
+- Prépare pour futures versions WhisperX
+
+---
 
 ### Explication du "Model"
 Le **"model"** ici fait référence au **modèle VAD (Voice Activity Detection)** pré-entraîné utilisé par WhisperX :

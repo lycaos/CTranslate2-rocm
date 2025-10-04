@@ -1,13 +1,13 @@
 import glob
 import os
-import sys
 import shutil
+import sys
 
 import pybind11
 
 from pybind11.setup_helpers import ParallelCompile
 from setuptools import Extension, find_packages, setup
-from setuptools.command.build_py import build_py
+from setuptools.command.build_ext import build_ext
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 include_dirs = [pybind11.get_include()]
@@ -43,81 +43,66 @@ def _maybe_add_library_root(lib_name):
 
 _maybe_add_library_root("CTRANSLATE2")
 
-
-class BuildPyCommand(build_py):
-    """Custom build command to copy libctranslate2.so into the package."""
-    
-    def run(self):
-        # Run standard build
-        build_py.run(self)
-        
-        # Copy libctranslate2.so.* from CONDA_PREFIX or build directory
-        conda_prefix = os.environ.get("CONDA_PREFIX")
-        ctranslate2_root = os.environ.get("CTRANSLATE2_ROOT")
-        
-        # Search paths for libctranslate2.so
-        search_paths = []
-        if ctranslate2_root:
-            search_paths.extend([
-                os.path.join(ctranslate2_root, "lib"),
-                os.path.join(ctranslate2_root, "lib64"),
-            ])
-        if conda_prefix:
-            search_paths.extend([
-                os.path.join(conda_prefix, "lib"),
-                os.path.join(conda_prefix, "lib64"),
-            ])
-        
-        # Add build directory
-        build_lib_dir = os.path.join(base_dir, "..", "build")
-        if os.path.exists(build_lib_dir):
-            search_paths.append(build_lib_dir)
-        
-        # Find libctranslate2.so.*
-        lib_found = False
-        for search_path in search_paths:
-            if not os.path.exists(search_path):
-                continue
-            
-            # Look for libctranslate2.so.* files
-            lib_pattern = os.path.join(search_path, "libctranslate2.so.*")
-            lib_files = glob.glob(lib_pattern)
-            
-            if lib_files:
-                # Copy to build directory
-                package_dir = os.path.join(self.build_lib, "ctranslate2")
-                os.makedirs(package_dir, exist_ok=True)
-                
-                for lib_file in lib_files:
-                    dest = os.path.join(package_dir, os.path.basename(lib_file))
-                    print(f"Copying {lib_file} to {dest}")
-                    shutil.copy2(lib_file, dest)
-                    lib_found = True
-                
-                # Also copy the symlink libctranslate2.so if it exists
-                symlink = os.path.join(search_path, "libctranslate2.so")
-                if os.path.exists(symlink):
-                    dest_symlink = os.path.join(package_dir, "libctranslate2.so")
-                    if os.path.islink(symlink):
-                        # Copy as symlink
-                        link_target = os.readlink(symlink)
-                        if os.path.exists(dest_symlink):
-                            os.remove(dest_symlink)
-                        os.symlink(link_target, dest_symlink)
-                    else:
-                        shutil.copy2(symlink, dest_symlink)
-                
-                if lib_found:
-                    break
-        
-        if not lib_found:
-            print("WARNING: libctranslate2.so not found in search paths!")
-            print(f"Searched: {search_paths}")
-
-
 cflags = ["-std=c++17", "-fvisibility=hidden"]
 ldflags = []
 package_data = {}
+
+# Custom build_ext to copy libctranslate2.so into the package
+class CustomBuildExt(build_ext):
+    def run(self):
+        super().run()
+        # Copy libctranslate2.so* into the ctranslate2 package directory
+        if sys.platform.startswith("linux"):
+            # Try CTRANSLATE2_ROOT first, then CONDA_PREFIX, then system paths
+            ct2_root = os.environ.get("CTRANSLATE2_ROOT") or os.environ.get("CONDA_PREFIX")
+            
+            if ct2_root:
+                lib_src_dir = None
+                for lib_dir in ("lib", "lib64"):
+                    path = os.path.join(ct2_root, lib_dir)
+                    if os.path.exists(path):
+                        lib_src_dir = path
+                        break
+                
+                if lib_src_dir:
+                    # Find all libctranslate2.so* files
+                    lib_pattern = os.path.join(lib_src_dir, "libctranslate2.so*")
+                    lib_files = glob.glob(lib_pattern)
+                    
+                    if lib_files:
+                        # Copy to package directory in build_lib
+                        package_dir = os.path.join(self.build_lib, "ctranslate2")
+                        os.makedirs(package_dir, exist_ok=True)
+                        
+                        print(f"\n{'='*60}")
+                        print("Copying shared libraries to wheel:")
+                        print(f"{'='*60}")
+                        for lib_file in lib_files:
+                            # Skip symlinks, we'll recreate them
+                            if os.path.islink(lib_file):
+                                continue
+                            
+                            dest = os.path.join(package_dir, os.path.basename(lib_file))
+                            print(f"  {lib_file} -> {dest}")
+                            shutil.copy2(lib_file, dest)
+                        
+                        # Create symlinks for versioned libraries
+                        for lib_file in lib_files:
+                            basename = os.path.basename(lib_file)
+                            if os.path.islink(lib_file):
+                                target = os.readlink(lib_file)
+                                link_path = os.path.join(package_dir, basename)
+                                if not os.path.exists(link_path):
+                                    os.symlink(target, link_path)
+                                    print(f"  Created symlink: {basename} -> {target}")
+                        print(f"{'='*60}\n")
+                    else:
+                        print(f"WARNING: No libctranslate2.so* found in {lib_src_dir}")
+                else:
+                    print(f"WARNING: No lib directory found in {ct2_root}")
+            else:
+                print("WARNING: CTRANSLATE2_ROOT or CONDA_PREFIX not set, skipping library copy")
+
 if sys.platform == "darwin":
     # std::visit requires macOS 10.14
     cflags.append("-mmacosx-version-min=10.14")
@@ -125,10 +110,10 @@ if sys.platform == "darwin":
 elif sys.platform == "win32":
     cflags = ["/std:c++17", "/d2FH4-"]
     package_data["ctranslate2"] = ["*.dll"]
-else:
-    # Linux: Include libctranslate2.so in the wheel
-    package_data["ctranslate2"] = ["*.so", "*.so.*"]
-    # Set RPATH to $ORIGIN so _ext.so finds libctranslate2.so in the same directory
+elif sys.platform.startswith("linux"):
+    # Include shared libraries in the wheel
+    package_data["ctranslate2"] = ["*.so*"]
+    # Set RPATH to look in the same directory as _ext.so
     ldflags.append("-Wl,-rpath,$ORIGIN")
 
 ctranslate2_module = Extension(
@@ -152,9 +137,6 @@ setup(
     long_description_content_type="text/markdown",
     author="OpenNMT",
     url="https://opennmt.net",
-    cmdclass={
-        'build_py': BuildPyCommand,
-    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: GPU :: NVIDIA CUDA :: 12 :: 12.0",
@@ -182,6 +164,7 @@ setup(
     packages=find_packages(exclude=["bin"]),
     package_data=package_data,
     ext_modules=[ctranslate2_module],
+    cmdclass={"build_ext": CustomBuildExt},
     python_requires=">=3.9",
     install_requires=[
         "setuptools",
