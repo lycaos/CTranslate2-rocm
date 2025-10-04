@@ -64,11 +64,13 @@ namespace ctranslate2 {
       }
 
       void free(void* ptr, int device_index) override {
-        _allocator->DeviceFree(device_index, ptr);
+        // Cast to void to explicitly ignore the return value in destructor context
+        (void)_allocator->DeviceFree(device_index, ptr);
       }
 
       void clear_cache() override {
-        _allocator->FreeAllCached();
+        // Cast to void to explicitly ignore the return value
+        (void)_allocator->FreeAllCached();
       }
 
     private:
@@ -127,7 +129,8 @@ namespace ctranslate2 {
 #else
       for (int i = 0; i < get_gpu_count(); ++i) {
         int supported = 0;
-        cudaDeviceGetAttribute(&supported, cudaDevAttrMemoryPoolsSupported, i);
+        // Cast to void to explicitly ignore the return value
+        (void)cudaDeviceGetAttribute(&supported, cudaDevAttrMemoryPoolsSupported, i);
         if (!supported)
           return false;
       }

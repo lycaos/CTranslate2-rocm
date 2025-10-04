@@ -1,0 +1,16 @@
+[
+  {
+    "name": "ROCm 6.3.0 Clang",
+    "compilers": {
+      "C": "/opt/rocm-6.3.0/lib/llvm/bin/clang",
+      "CXX": "/opt/rocm-6.3.0/lib/llvm/bin/clang++"
+    },
+    "preferredGenerator": {
+      "name": "Unix Makefiles"
+    },
+    "cmakeSettings": {
+      "CMAKE_PREFIX_PATH": "/opt/rocm-6.3.0;/opt/rocm-6.3.0/hip",
+      "CMAKE_HIP_ARCHITECTURES": "gfx906"
+    }
+  }
+]

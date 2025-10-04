@@ -1,5 +1,5 @@
 #pragma once
-#include <cuda_fp16.h>
+#include "cuda/helpers.h"
 
 namespace ctranslate2 {
   namespace ops {

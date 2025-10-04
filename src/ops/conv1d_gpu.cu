@@ -49,7 +49,7 @@ namespace ctranslate2 {
 
       miopenTensorDescriptor_t weight_desc;
       CUDNN_CHECK(miopenCreateTensorDescriptor(&weight_desc));
-      CUDNN_CHECK(miopenSet4dTensorDescriptor(weight_desc, data_type, CUDNN_TENSOR_NCHW,
+      CUDNN_CHECK(miopenSet4dTensorDescriptor(weight_desc, data_type,
                                              out_channels, in_channels_per_group, 1, kernel_size));
 
       miopenConvolutionDescriptor_t conv_desc;
@@ -63,11 +63,9 @@ namespace ctranslate2 {
 
 
       miopenHandle_t handle = cuda::get_cudnn_handle();
-      CUDNN_CHECK(cudnnSetConvolutionMathType(conv_desc, CUDNN_DEFAULT_MATH));
+      // MIOpen doesn't have SetConvolutionMathType - math type is handled automatically
       if (_groups > 1)
-        CUDNN_CHECK(cudnnSetConvolutionGroupCount(conv_desc, _groups));
-      if (data_type == CUDNN_DATA_HALF)
-        CUDNN_CHECK(cudnnSetConvolutionMathType(conv_desc, CUDNN_TENSOR_OP_MATH));
+        CUDNN_CHECK(miopenSetConvolutionGroupCount(conv_desc, _groups));
 
       miopenConvFwdAlgorithm_t algo;
 

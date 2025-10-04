@@ -5,10 +5,11 @@
 
 #ifdef CT2_USE_HIP
 #include <hip/hip_fp16.h>
-#include <hip/hip_bf16.h>
+// #include <hip/hip_bf16.h>  // Commented out - causes duplicate symbol errors with ROCm 6.3
 #include <hip/hip_runtime.h>
 
-#define __nv_bfloat16 __hip_bfloat16
+// For ROCm, use __half as the base type for bfloat16 (similar to float16 approach)
+#define __nv_bfloat16 __half
 __device__ inline void __syncwarp(uint32_t mask){} //TODO: 6.1 should have this but it doesn't?
 #else
 #include <cuda_fp16.h>
@@ -191,40 +192,40 @@ namespace ctranslate2 {
       }
     };
 
-#ifdef CT2_USE_HIP
-    // ROCm 6.1 still doesn't have these implemented
+#if !CUDA_CAN_USE_BF16_MATH
+    // When bfloat16 math is not available, convert to float for operations
     template<>
-    struct plus<__hip_bfloat16> {
-      __device__ __hip_bfloat16 operator()(const __hip_bfloat16& lhs, const __hip_bfloat16& rhs) const {
-        return __hadd(lhs, rhs);
+    struct plus<__nv_bfloat16> {
+      __device__ __nv_bfloat16 operator()(const __nv_bfloat16& lhs, const __nv_bfloat16& rhs) const {
+        return __nv_bfloat16(float(lhs) + float(rhs));
       }
     };
 
     template<>
-    struct minus<__hip_bfloat16> {
-      __device__ __hip_bfloat16 operator()(const __hip_bfloat16& lhs, const __hip_bfloat16& rhs) const {
-        return __hsub(lhs, rhs);
+    struct minus<__nv_bfloat16> {
+      __device__ __nv_bfloat16 operator()(const __nv_bfloat16& lhs, const __nv_bfloat16& rhs) const {
+        return __nv_bfloat16(float(lhs) - float(rhs));
       }
     };
 
     template<>
-    struct multiplies<__hip_bfloat16> {
-      __device__ __hip_bfloat16 operator()(const __hip_bfloat16& lhs, const __hip_bfloat16& rhs) const {
-        return __hmul(lhs, rhs);
+    struct multiplies<__nv_bfloat16> {
+      __device__ __nv_bfloat16 operator()(const __nv_bfloat16& lhs, const __nv_bfloat16& rhs) const {
+        return __nv_bfloat16(float(lhs) * float(rhs));
       }
     };
 
     template<>
-    struct maximum<__hip_bfloat16> {
-      __device__ __hip_bfloat16 operator()(const __hip_bfloat16& lhs, const __hip_bfloat16& rhs) const {
-        return __hmax(lhs, rhs);
+    struct maximum<__nv_bfloat16> {
+      __device__ __nv_bfloat16 operator()(const __nv_bfloat16& lhs, const __nv_bfloat16& rhs) const {
+        return float(lhs) < float(rhs) ? rhs : lhs;
       }
     };
 
     template<>
-    struct minimum<__hip_bfloat16> {
-      __device__ __hip_bfloat16 operator()(const __hip_bfloat16& lhs, const __hip_bfloat16& rhs) const {
-        return __hmax(lhs, rhs);
+    struct minimum<__nv_bfloat16> {
+      __device__ __nv_bfloat16 operator()(const __nv_bfloat16& lhs, const __nv_bfloat16& rhs) const {
+        return float(lhs) < float(rhs) ? lhs : rhs;
       }
     };
 #endif

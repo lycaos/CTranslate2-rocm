@@ -183,7 +183,9 @@ namespace fastertransformer {
 
     for (int ite = 0; ite < k; ite++) {
       partial.init();
-      #pragma unroll
+#if !defined(CT2_USE_HIP)
+#pragma unroll
+#endif
       for (int elem_id = tid + block_lane * BLOCK_SIZE_;
            elem_id < vocab_size;
            elem_id += BLOCK_SIZE_ * BLOCKS_PER_BEAM_) {
@@ -236,7 +238,9 @@ namespace fastertransformer {
 
     for (int ite = 0; ite < k; ite++) {
       partial.init();
-      #pragma unroll
+#if !defined(CT2_USE_HIP)
+#pragma unroll
+#endif
       for (int i = tid; i < size; i+= BLOCK_SIZE_) {
         partial.insert(s_val[i], i);
       }

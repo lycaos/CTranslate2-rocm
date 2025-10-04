@@ -1,0 +1,33 @@
+{
+    // ===== SOLUTION GPT-5 : Configuration IntelliSense basée sur compile_commands.json =====
+    
+    // Option A (recommandée) : Utiliser CMake Tools comme fournisseur de configuration
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    
+    // Option B (backup) : Pointer directement sur compile_commands.json
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    
+    // Compilateur ROCm (pour que IntelliSense interroge les includes/defines ROCm)
+    "C_Cpp.default.compilerPath": "/opt/rocm-6.3.0/lib/llvm/bin/clang++",
+    "C_Cpp.default.cppStandard": "c++17",
+    "C_Cpp.default.intelliSenseMode": "linux-clang-x64",
+    
+    // CMake Tools : activer mais forcer l'utilisation du kit ROCm
+    "cmake.configureOnOpen": false,
+    "cmake.useCMakePresets": "always",
+    "cmake.configureOnEdit": false,
+    "cmake.buildBeforeRun": false,
+    "cmake.configureSettings": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+    },
+    "github.copilot.nextEditSuggestions.allowWhitespaceOnlyChanges": false,
+    "github.copilot.nextEditSuggestions.fixes": false,
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python-envs.pythonProjects": [],
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build",
+        "--header-insertion=never",
+        "--query-driver=/opt/rocm-6.3.0/lib/llvm/bin/clang++"
+    ]
+}

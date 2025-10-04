@@ -84,7 +84,8 @@ namespace ctranslate2 {
       ~CudaStream() {
         if (_stream != cudaStreamDefault) {
           ScopedDeviceSetter scoped_device_setter(Device::CUDA, _device);
-          cudaStreamDestroy(_stream);
+          // Cast to void to explicitly ignore the return value in destructor
+          (void)cudaStreamDestroy(_stream);
         }
       }
       cudaStream_t get() const {
